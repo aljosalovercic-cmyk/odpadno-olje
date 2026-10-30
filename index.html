@@ -1,73 +1,145 @@
 <!DOCTYPE html>
 <html lang="sl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>QR Kamera</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f7fb">
+    <title>QR skener</title>
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #172033;
+            background: #f5f7fb;
+            font-synthesis: none;
+            text-rendering: optimizeLegibility;
+        }
 
-<script src="libs/zxing.min.js"></script>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-width: 320px;
+            min-height: 100vh;
+            margin: 0;
+            padding: 48px 20px;
+        }
+
+        main {
+            width: min(100%, 560px);
+            margin: 0 auto;
+        }
+
+        .eyebrow {
+            margin: 0 0 8px;
+            color: #52617a;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(2rem, 7vw, 2.8rem);
+            letter-spacing: -0.04em;
+        }
+
+        .intro {
+            margin: 12px 0 24px;
+            color: #52617a;
+            line-height: 1.6;
+        }
+
+        .scanner-card {
+            overflow: hidden;
+            padding: 16px;
+            border: 1px solid #e0e6f0;
+            border-radius: 20px;
+            background: #fff;
+            box-shadow: 0 12px 36px rgb(23 32 51 / 8%);
+        }
+
+        .camera-frame {
+            overflow: hidden;
+            aspect-ratio: 4 / 3;
+            border-radius: 12px;
+            background: #111827;
+        }
+
+        video {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .status {
+            min-height: 48px;
+            margin: 16px 0;
+            color: #34425a;
+            line-height: 1.5;
+        }
+
+        button {
+            width: 100%;
+            min-height: 48px;
+            padding: 12px 18px;
+            border: 0;
+            border-radius: 10px;
+            background: #2457d6;
+            color: #fff;
+            cursor: pointer;
+            font: inherit;
+            font-weight: 700;
+        }
+
+        button:hover {
+            background: #1948bd;
+        }
+
+        button:focus-visible {
+            outline: 3px solid #98b5ff;
+            outline-offset: 3px;
+        }
+
+        button:disabled {
+            cursor: wait;
+            opacity: 0.7;
+        }
+
+        .note {
+            margin: 16px 4px 0;
+            color: #68758a;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 32px 16px;
+            }
+        }
+    </style>
+    <script src="libs/zxing.min.js" defer></script>
+    <script src="app.js" defer></script>
 </head>
 <body>
+    <main>
+        <p class="eyebrow">Preprosto in hitro</p>
+        <h1>QR skener</h1>
+        <p class="intro">Dovolite dostop do kamere in usmerite telefon v QR-kodo. Če vsebuje spletno povezavo, jo bomo odprli.</p>
 
-<h1>QR Kamera Test</h1>
+        <section class="scanner-card" aria-label="Skener QR-kod">
+            <div class="camera-frame">
+                <video id="video" autoplay muted playsinline aria-label="Predogled kamere"></video>
+            </div>
+            <p id="result" class="status" role="status" aria-live="polite">Pripravljam kamero …</p>
+            <button id="restart" type="button">Zaženi kamero</button>
+        </section>
 
-<video id="video" width="350" autoplay muted playsinline></video>
-
-<p id="result">Pripravljam kamero...</p>
-
-<script>
-const video = document.getElementById("video");
-const resultElement = document.getElementById("result");
-
-async function startScanner() {
-    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-        resultElement.textContent =
-            "Kamera zahteva varno povezavo (HTTPS ali localhost) in podprt brskalnik.";
-        return;
-    }
-
-    try {
-        const codeReader = new ZXing.BrowserQRCodeReader();
-        resultElement.textContent = "Čakam na dovoljenje za kamero...";
-
-        await codeReader.decodeFromVideoDevice(null, video, (result, error) => {
-            if (!result) {
-                if (error && !["NotFoundException", "ChecksumException", "FormatException"].includes(error.name)) {
-                    console.error("Napaka pri branju QR-kode:", error);
-                    resultElement.textContent = `Napaka pri branju QR-kode: ${error.message || error}`;
-                }
-                return;
-            }
-
-            const text = result.getText();
-            resultElement.textContent = text;
-
-            try {
-                const url = new URL(text);
-                if (url.protocol === "http:" || url.protocol === "https:") {
-                    window.location.href = url.href;
-                }
-            } catch {
-                // QR-koda ni URL, zato rezultat ostane prikazan na strani.
-            }
-        });
-
-        resultElement.textContent = "Usmerite kamero v QR-kodo.";
-    } catch (error) {
-        console.error("Kamera se ni mogla zagnati:", error);
-
-        if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
-            resultElement.textContent = "Dostop do kamere je zavrnjen. Dovolite uporabo kamere in osvežite stran.";
-        } else if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
-            resultElement.textContent = "Kamera ni bila najdena.";
-        } else {
-            resultElement.textContent = `Kamera se ni mogla zagnati: ${error.message || error}`;
-        }
-    }
-}
-
-startScanner();
-</script>
-
+        <p class="note">Kamera deluje na varni povezavi (HTTPS) ali na lokalnem strežniku (localhost).</p>
+    </main>
 </body>
 </html>
