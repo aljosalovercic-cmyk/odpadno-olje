@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QR Kamera</title>
+
+<script src="libs/zxing.min.js"></script>
+</head>
+<body>
+
+<h1>QR Kamera Test</h1>
+
+<video id="video" width="350" autoplay muted playsinline></video>
+
+<p id="result">Pripravljam kamero...</p>
+
+<script>
+const video = document.getElementById("video");
+const resultElement = document.getElementById("result");
+
+async function startScanner() {
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+        resultElement.textContent =
+            "Kamera zahteva varno povezavo (HTTPS ali localhost) in podprt brskalnik.";
+        return;
+    }
+
+    try {
+        const codeReader = new ZXing.BrowserQRCodeReader();
+        resultElement.textContent = "Čakam na dovoljenje za kamero...";
+
+        await codeReader.decodeFromVideoDevice(null, video, (result, error) => {
+            if (!result) {
+                if (error && !["NotFoundException", "ChecksumException", "FormatException"].includes(error.name)) {
+                    console.error("Napaka pri branju QR-kode:", error);
+                    resultElement.textContent = `Napaka pri branju QR-kode: ${error.message || error}`;
+                }
+                return;
+            }
+
+            const text = result.getText();
+            resultElement.textContent = text;
+
+            try {
+                const url = new URL(text);
+                if (url.protocol === "http:" || url.protocol === "https:") {
+                    window.location.href = url.href;
+                }
+            } catch {
+                // QR-koda ni URL, zato rezultat ostane prikazan na strani.
+            }
+        });
+
+        resultElement.textContent = "Usmerite kamero v QR-kodo.";
+    } catch (error) {
+        console.error("Kamera se ni mogla zagnati:", error);
+
+        if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+            resultElement.textContent = "Dostop do kamere je zavrnjen. Dovolite uporabo kamere in osvežite stran.";
+        } else if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
+            resultElement.textContent = "Kamera ni bila najdena.";
+        } else {
+            resultElement.textContent = `Kamera se ni mogla zagnati: ${error.message || error}`;
+        }
+    }
+}
+
+startScanner();
+</script>
+
+</body>
+</html>
